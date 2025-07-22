@@ -5,8 +5,8 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          {/* <NotificationButton /> */}
+          <h1 className="text-2xl font-bold">Alice's Dashboard</h1>
+          <NotificationButton />
         </div>
 
         <div className="bg-white rounded-lg p-6 shadow-sm">
