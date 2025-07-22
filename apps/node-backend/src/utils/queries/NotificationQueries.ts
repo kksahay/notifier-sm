@@ -7,7 +7,7 @@ export class NotificationQueries {
     object_id,
     recipient_ids,
   }: {
-    type: "post_created" | "post_liked";
+    type: "post" | "like";
     actor_id: number;
     object_id: number;
     recipient_ids: number[];
@@ -31,12 +31,12 @@ export class NotificationQueries {
 
     if (recipient_ids.length > 0) {
       const valuesClause = recipient_ids
-        .map((_, i) => `($1, $${i + 2})`)
+        .map((_, i) => `($1, $${i + 2}, NOW())`)
         .join(", ");
 
       const insertRecipientsQuery = {
         text: `
-        INSERT INTO notification_recipients (event_id, user_id)
+        INSERT INTO notification_recipients (event_id, user_id, delivered_at)
         VALUES ${valuesClause}
       `,
         values: [event_id, ...recipient_ids],
@@ -44,28 +44,22 @@ export class NotificationQueries {
 
       await client.query(insertRecipientsQuery);
     }
-
-    return { event_id, recipients: recipient_ids };
   }
 
   async getNotificationsQuery(user_id: number) {
     const query = {
       text: `
       SELECT
-        nr.id AS recipient_id,
-        ne.id AS event_id,
-        nt.name AS type,
-        ne.actor_id,
-        u.name AS actor_name,
-        u.profile_image_url,
+        MIN(ne.id) AS event_id,
+        nt.name     AS type,
         ne.object_id,
-        ne.created_at
+        ARRAY_AGG(ne.actor_id ORDER BY ne.actor_id) AS actor_ids
         FROM notification_recipients nr
         JOIN notification_events ne ON nr.event_id = ne.id
-        JOIN notification_types nt ON nt.id = ne.type_id
-        JOIN users u ON u.id = ne.actor_id
+        JOIN notification_types nt ON ne.type_id = nt.id
         WHERE nr.user_id = $1
-        ORDER BY ne.created_at DESC
+        GROUP BY ne.object_id, nt.name
+        ORDER BY MAX(ne.created_at) DESC
     `,
       values: [user_id],
     };
@@ -79,10 +73,11 @@ export class NotificationQueries {
         UPDATE notification_recipients
         SET read_at = NOW()
         WHERE user_id = $1 AND read_at IS NULL
-    `,
+      `,
       values: [user_id],
     };
-    const res = await client.query(query);
-    return res.rows;
+
+    const result = await client.query(query);
+    return result.rowCount;
   }
 }
