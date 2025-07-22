@@ -13,7 +13,9 @@ export class NotificationController {
 
   async streamNotifications(c: Context) {
     try {
-      const { user_id } = await c.req.json();
+      const user_id = Number(c.req.query("user_id"));
+      if (!user_id) return c.text("Missing user_id", 400);
+
       return streamSSE(c, async (stream) => {
         this.streams.set(user_id, stream);
         stream.onAbort(() => {
